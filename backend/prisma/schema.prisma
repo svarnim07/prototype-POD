@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("STUDENT")
+  createdAt    DateTime @default(now())
+
+  examAssignments  ExamAssignment[]
+  submissions      Submission[]
+  proctoringEvents ProctoringEvent[]
+  riskScores       RiskScore[]
+  grievances       Grievance[]
+
+  @@map("users")
+}
+
+model Exam {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  duration    Int
+  startTime   DateTime
+  endTime     DateTime
+  createdBy   String
+  status      String   @default("DRAFT")
+  createdAt   DateTime @default(now())
+
+  questions        Question[]
+  assignments      ExamAssignment[]
+  submissions      Submission[]
+  proctoringEvents ProctoringEvent[]
+  riskScores       RiskScore[]
+  grievances       Grievance[]
+
+  @@map("exams")
+}
+
+model ExamAssignment {
+  id         String   @id @default(uuid())
+  userId     String
+  examId     String
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, examId])
+  @@map("exam_assignments")
+}
+
+model Question {
+  id        String   @id @default(uuid())
+  examId    String
+  type      String
+  content   String
+  options   String?
+  answer    String?
+  marks     Int      @default(1)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  exam    Exam               @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers SubmissionAnswer[]
+
+  @@map("questions")
+}
+
+model Submission {
+  id          String    @id @default(uuid())
+  userId      String
+  examId      String
+  status      String    @default("IN_PROGRESS")
+  startedAt   DateTime  @default(now())
+  submittedAt DateTime?
+  autoSavedAt DateTime?
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam    Exam             @relation(fields: [examId], references: [id], onDelete: Cascade)
+  answers SubmissionAnswer[]
+
+  @@unique([userId, examId])
+  @@map("submissions")
+}
+
+model SubmissionAnswer {
+  id           String   @id @default(uuid())
+  submissionId String
+  questionId   String
+  answer       String?
+  savedAt      DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, questionId])
+  @@map("submission_answers")
+}
+
+model ProctoringEvent {
+  id         String   @id @default(uuid())
+  userId     String
+  examId     String
+  eventType  String
+  confidence Float
+  severity   String   @default("LOW")
+  metadata   String?
+  timestamp  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@map("proctoring_events")
+}
+
+model RiskScore {
+  id        String   @id @default(uuid())
+  userId    String
+  examId    String
+  score     Float    @default(0)
+  level     String   @default("LOW")
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, examId])
+  @@map("risk_scores")
+}
+
+model Grievance {
+  id          String   @id @default(uuid())
+  userId      String
+  examId      String
+  issue       String
+  description String?
+  status      String   @default("OPEN")
+  resolution  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  @@map("grievances")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
