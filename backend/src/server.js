@@ -66,14 +66,25 @@ app.use((err, _req, res, _next) => {
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
+// Handle /api prefix for Vercel
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    req.url = req.url.replace(/^\/api/, '');
+  }
+  next();
+});
+
 // Setup WebSocket
 const io = setupSocket(server, prisma);
 app.set('io', io);
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`\n🚀 ExamShield Backend running on http://localhost:${PORT}`);
-  console.log(`📡 WebSocket ready`);
-});
+// Only listen if not in a serverless environment (Vercel)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log(`\n🚀 ExamShield Backend running on http://localhost:${PORT}`);
+    console.log(`📡 WebSocket ready`);
+  });
+}
 
-module.exports = { app, prisma };
+module.exports = app;
