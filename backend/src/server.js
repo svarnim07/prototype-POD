@@ -15,6 +15,24 @@ const riskRoutes = require('./risk/risk.routes');
 const grievanceRoutes = require('./grievance/grievance.routes');
 const userRoutes = require('./user/user.routes');
 const { PrismaClient } = require('@prisma/client');
+const fs = require('fs');
+const { execSync } = require('child_process');
+
+// Vercel SQLite Workaround: Move DB to /tmp which is writable
+if (process.env.VERCEL) {
+  const tmpDbPath = '/tmp/examshield.db';
+  process.env.DATABASE_URL = `file:${tmpDbPath}`;
+  
+  if (!fs.existsSync(tmpDbPath)) {
+    console.log('🔄 Initializing SQLite DB in /tmp...');
+    try {
+      execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+      execSync('node prisma/seed.js', { stdio: 'inherit' });
+    } catch (err) {
+      console.error('❌ DB initialization failed:', err);
+    }
+  }
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -44,6 +62,14 @@ app.use((req, _res, next) => {
   next();
 });
 
+// Handle /api prefix for Vercel
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    req.url = req.url.replace(/^\/api/, '');
+  }
+  next();
+});
+
 // Routes
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
@@ -64,14 +90,6 @@ app.use((_req, res) => res.status(404).json({ error: 'Route not found' }));
 app.use((err, _req, res, _next) => {
   console.error(err.stack);
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
-});
-
-// Handle /api prefix for Vercel
-app.use((req, res, next) => {
-  if (req.url.startsWith('/api')) {
-    req.url = req.url.replace(/^\/api/, '');
-  }
-  next();
 });
 
 // Setup WebSocket
